@@ -1,0 +1,710 @@
+---
+title: API Reference
+description: HTTP and WebSocket API documentation for MikroMeet
+---
+
+Complete API documentation for MikroMeet's HTTP REST endpoints and WebSocket
+signaling protocol.
+
+## Base URL
+
+- **Local testing**: `http://127.0.0.1:3000`
+- **Production**: `https://yourdomain.com`
+
+## HTTP Endpoints
+
+### Health Check
+
+Check server health and statistics.
+
+```http
+GET /health
+```
+
+**Response** (200 OK):
+
+```json
+{
+  "status": "ok",
+  "totalRooms": 5,
+  "totalParticipants": 12,
+  "peakParticipants": 24,
+  "uptime": 3600000,
+  "version": "1.0.0"
+}
+```
+
+**Fields**:
+
+- `status` - Server status (`"ok"`)
+- `totalRooms` - Current active rooms
+- `totalParticipants` - Current connected participants
+- `peakParticipants` - Peak participants since server start
+- `uptime` - Server uptime in milliseconds
+- `version` - MikroMeet version
+
+### Configuration
+
+Get ICE server configuration for WebRTC.
+
+```http
+GET /config
+```
+
+**Response** (200 OK):
+
+```json
+{
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "password"
+    }
+  ]
+}
+```
+
+**Fields**:
+
+- `iceServers` - Array of STUN/TURN server configurations
+
+### Create Room
+
+Pre-create a room with optional password.
+
+```http
+POST /api/rooms
+Content-Type: application/json
+
+{
+  "roomId": "ABC123",
+  "password": "secret",
+  "maxParticipants": 8,
+  "title": "Roadmap sync",
+  "scheduledStart": 1777550400000,
+  "scheduledEnd": 1777552200000
+}
+```
+
+**Request Body** (all fields optional):
+
+- `roomId` - Custom room ID (6 alphanumeric characters)
+- `password` - Room password for entry
+- `maxParticipants` - Maximum participants (default: 8)
+- `title` - Optional meeting title
+- `scheduledStart` - Optional start time as a Unix timestamp in milliseconds
+- `scheduledEnd` - Optional end time as a Unix timestamp in milliseconds
+
+**Response** (201 Created):
+
+```json
+{
+  "roomId": "ABC123",
+  "creatorToken": "550e8400-e29b-41d4-a716-446655440000",
+  "title": "Roadmap sync",
+  "scheduledStart": 1777550400000,
+  "scheduledEnd": 1777552200000
+}
+```
+
+**Fields**:
+
+- `roomId` - The created room ID
+- `creatorToken` - Token for creator privileges
+- `title` - Meeting title, when provided
+- `scheduledStart` - Scheduled start time, when provided
+- `scheduledEnd` - Scheduled end time, when provided
+
+**Error Responses**:
+
+**429 Too Many Requests** (rate limit exceeded):
+
+```json
+{
+  "error": "Too many requests. Please try again later."
+}
+```
+
+**429 Too Many Requests** (room limit reached):
+
+```json
+{
+  "error": "Cannot create room. Limit reached or room ID already exists."
+}
+```
+
+**400 Bad Request** (invalid request):
+
+```json
+{
+  "error": "Invalid request body"
+}
+```
+
+## WebSocket API
+
+Connect to WebSocket endpoint for signaling.
+
+### Connection
+
+```javascript
+const ws = new WebSocket('wss://yourdomain.com/ws');
+```
+
+**Endpoint**: `/ws`
+
+### Message Format
+
+All messages are JSON with this base structure:
+
+```json
+{
+  "type": "message-type",
+  "roomId": "ABC123",
+  "participantId": "participant-uuid",
+  "timestamp": 1234567890
+}
+```
+
+### Client → Server Messages
+
+Messages sent from client to server.
+
+#### Join Room
+
+Join or create a meeting room.
+
+```json
+{
+  "type": "join",
+  "roomId": "ABC123",
+  "participantId": "",
+  "name": "John Doe",
+  "password": "secret",
+  "isHost": false,
+  "creatorToken": "550e8400-e29b-41d4-a716-446655440000",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `name` - Participant's display name
+- `password` - Room password (if required)
+- `isHost` - True if creating new room
+- `creatorToken` - Creator token from `/api/rooms` (optional)
+
+**Response**: Server sends `participant-joined` message.
+
+#### Leave Room
+
+Leave the current room.
+
+```json
+{
+  "type": "leave",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### WebRTC Offer
+
+Send WebRTC offer to peer.
+
+```json
+{
+  "type": "offer",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "peer-uuid",
+  "sdp": "v=0\r\no=- ...",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `targetId` - Recipient participant ID
+- `sdp` - WebRTC SDP offer
+
+#### WebRTC Answer
+
+Send WebRTC answer to peer.
+
+```json
+{
+  "type": "answer",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "peer-uuid",
+  "sdp": "v=0\r\no=- ...",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `targetId` - Recipient participant ID
+- `sdp` - WebRTC SDP answer
+
+#### ICE Candidate
+
+Send ICE candidate to peer.
+
+```json
+{
+  "type": "ice-candidate",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "peer-uuid",
+  "candidate": {
+    "candidate": "candidate:...",
+    "sdpMid": "0",
+    "sdpMLineIndex": 0
+  },
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `targetId` - Recipient participant ID
+- `candidate` - ICE candidate object
+
+#### Chat Message
+
+Send text message to room.
+
+```json
+{
+  "type": "chat",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "text": "Hello everyone!",
+  "replyTo": "message-id",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `text` - Message text
+- `replyTo` - ID of message being replied to (optional)
+
+#### File Offer
+
+Offer a file transfer to another participant.
+
+```json
+{
+  "type": "file-offer",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "peer-uuid",
+  "transferId": "transfer-uuid",
+  "fileName": "notes.pdf",
+  "fileSize": 245760,
+  "fileType": "application/pdf",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `targetId` - Recipient participant ID
+- `transferId` - Stable ID for this transfer
+- `fileName` - Original file name
+- `fileSize` - File size in bytes
+- `fileType` - Browser-provided MIME type
+
+#### File Answer
+
+Accept or reject an offered file transfer.
+
+```json
+{
+  "type": "file-answer",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "sender-uuid",
+  "transferId": "transfer-uuid",
+  "accepted": true,
+  "timestamp": 1234567890
+}
+```
+
+#### File Chunk
+
+Send one encoded file chunk to the recipient.
+
+```json
+{
+  "type": "file-chunk",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "peer-uuid",
+  "transferId": "transfer-uuid",
+  "chunk": "base64-encoded-data",
+  "index": 0,
+  "total": 12,
+  "timestamp": 1234567890
+}
+```
+
+#### Update Participant State
+
+Update own audio/video state.
+
+```json
+{
+  "type": "participant-updated",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "isMuted": true,
+  "isVideoOff": false,
+  "isHandRaised": false,
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `isMuted` - Audio muted state
+- `isVideoOff` - Video disabled state
+- `isHandRaised` - Hand raised state
+
+#### Raise Hand
+
+Raise hand for attention.
+
+```json
+{
+  "type": "raise-hand",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Lower Hand
+
+Lower raised hand.
+
+```json
+{
+  "type": "lower-hand",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Recording Started
+
+Notify the room that a moderator started local recording.
+
+```json
+{
+  "type": "recording-started",
+  "roomId": "ABC123",
+  "participantId": "moderator-uuid",
+  "startedBy": "moderator-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Recording Stopped
+
+Notify the room that moderator recording stopped.
+
+```json
+{
+  "type": "recording-stopped",
+  "roomId": "ABC123",
+  "participantId": "moderator-uuid",
+  "stoppedBy": "moderator-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Reaction
+
+Send a short visual reaction to other room participants.
+
+```json
+{
+  "type": "reaction",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "reaction": "thumb",
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `reaction` - Reaction id to display. Built-in ids are `thumb`, `clap`, `party`, `heart`, and `laugh`.
+
+#### Moderator Actions
+
+Perform moderator actions (requires moderator privilege).
+
+```json
+{
+  "type": "moderator-action",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "target-uuid",
+  "action": "mute",
+  "timestamp": 1234567890
+}
+```
+
+**Actions**:
+
+- `mute` - Mute participant
+- `unmute` - Unmute participant
+- `kick` - Remove participant from room
+- `make-moderator` - Grant moderator privileges
+
+#### Lock Room
+
+Lock room to require moderator approval (moderator only).
+
+```json
+{
+  "type": "room-locked",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Unlock Room
+
+Unlock room (moderator only).
+
+```json
+{
+  "type": "room-unlocked",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Admit User
+
+Admit user from waiting room (moderator only).
+
+```json
+{
+  "type": "admit-user",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "waiting-user-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Reject User
+
+Reject user from waiting room (moderator only).
+
+```json
+{
+  "type": "reject-user",
+  "roomId": "ABC123",
+  "participantId": "your-uuid",
+  "targetId": "waiting-user-uuid",
+  "reason": "Room is full",
+  "timestamp": 1234567890
+}
+```
+
+### Server → Client Messages
+
+Messages sent from server to client.
+
+#### Participant Joined
+
+New participant joined the room.
+
+```json
+{
+  "type": "participant-joined",
+  "roomId": "ABC123",
+  "participantId": "new-participant-uuid",
+  "name": "Jane Doe",
+  "isModerator": false,
+  "isMuted": false,
+  "isVideoOff": false,
+  "timestamp": 1234567890
+}
+```
+
+**Fields**:
+
+- `participantId` - New participant's ID
+- `name` - Participant's display name
+- `isModerator` - Moderator status
+- `isMuted` - Audio state
+- `isVideoOff` - Video state
+
+#### Participant Left
+
+Participant left the room.
+
+```json
+{
+  "type": "participant-left",
+  "roomId": "ABC123",
+  "participantId": "departed-uuid",
+  "timestamp": 1234567890
+}
+```
+
+#### Participant Updated
+
+Participant's state changed.
+
+```json
+{
+  "type": "participant-updated",
+  "roomId": "ABC123",
+  "participantId": "participant-uuid",
+  "isModerator": false,
+  "isMuted": true,
+  "isVideoOff": false,
+  "isHandRaised": false,
+  "timestamp": 1234567890
+}
+```
+
+#### Waiting Room
+
+User is in waiting room or new user waiting.
+
+```json
+{
+  "type": "waiting-room",
+  "roomId": "ABC123",
+  "participantId": "waiting-uuid",
+  "name": "Waiting User",
+  "timestamp": 1234567890
+}
+```
+
+#### Error
+
+Server error message.
+
+```json
+{
+  "type": "error",
+  "roomId": "",
+  "participantId": "",
+  "message": "Room is full",
+  "code": "ROOM_FULL",
+  "timestamp": 1234567890
+}
+```
+
+**Error Codes**:
+
+- `ROOM_FULL` - Room has reached max participants
+- `INVALID_PASSWORD` - Incorrect room password
+- `ROOM_NOT_FOUND` - Meeting doesn't exist
+- `UNAUTHORIZED` - Action requires moderator privileges
+- `NOT_JOINED` - Action requires joining a room first
+- `TARGET_NOT_FOUND` - Target participant does not exist in the room
+- `INVALID_MESSAGE` - Message could not be parsed
+- `UNKNOWN_MESSAGE_TYPE` - Message type is not supported
+
+## Rate Limiting
+
+Rate limits per IP address:
+
+- **WebSocket connections**: 10 per minute
+- **Room creation**: 10 per minute
+
+**Response on limit exceeded**:
+
+- WebSocket: Connection closed
+- HTTP: 429 status code
+
+## CORS
+
+MikroMeet allows cross-origin requests:
+
+```http
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Methods: GET, POST, OPTIONS
+Access-Control-Allow-Headers: Content-Type
+```
+
+For production, configure specific origins in reverse proxy.
+
+## Security Headers
+
+MikroMeet includes security headers:
+
+```http
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+```
+
+## Example Client Implementation
+
+### JavaScript/TypeScript
+
+```typescript
+// Connect to WebSocket
+const ws = new WebSocket('wss://yourdomain.com/ws');
+
+// Join room
+ws.send(JSON.stringify({
+  type: 'join',
+  roomId: 'ABC123',
+  participantId: '',
+  name: 'John Doe',
+  timestamp: Date.now()
+}));
+
+// Handle messages
+ws.onmessage = (event) => {
+  const message = JSON.parse(event.data);
+
+  switch (message.type) {
+    case 'participant-joined':
+      console.log(`${message.name} joined`);
+      break;
+    case 'chat':
+      console.log(`${message.participantId}: ${message.text}`);
+      break;
+    case 'error':
+      console.error(message.message);
+      break;
+  }
+};
+
+// Send chat
+ws.send(JSON.stringify({
+  type: 'chat',
+  roomId: 'ABC123',
+  participantId: 'your-uuid',
+  text: 'Hello!',
+  timestamp: Date.now()
+}));
+```
+
+## Next Steps
+
+- [Server Options](../reference/cli-server) - Configuration reference
+- [Configuration Guide](../guides/configuration) - Setup instructions

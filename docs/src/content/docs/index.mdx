@@ -1,0 +1,46 @@
+---
+title: MikroMeet
+description: Self-hosted video meetings with lightweight signaling.
+template: splash
+hero:
+  tagline: Self-hosted, ultralight video conferencing solution that prioritizes simplicity.
+
+  image:
+    light: ../../assets/logo.svg
+    dark: ../../assets/logo.svg
+  actions:
+    - text: Get Started
+      link: /meet/docs/getting-started/introduction
+      icon: rocket
+    - text: Installation
+      link: /meet/docs/getting-started/installation
+      icon: laptop
+---
+
+import { Card, CardGrid, LinkCard } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <Card title="Getting Started" icon="open-book">
+    Set up MikroMeet and start meeting.
+
+    <LinkCard title="What is MikroMeet?" href="/meet/docs/getting-started/introduction" />
+    <LinkCard title="Installation" href="/meet/docs/getting-started/installation" />
+  </Card>
+
+  <Card title="Guides" icon="puzzle">
+    Deep dives into MikroMeet features.
+
+    <LinkCard title="Configuration" href="/meet/docs/guides/configuration" />
+    <LinkCard title="Authentication" href="/meet/docs/guides/authentication" />
+    <LinkCard title="Meeting Features" href="/meet/docs/guides/meeting-features" />
+    <LinkCard title="Deployment" href="/meet/docs/guides/deployment" />
+  </Card>
+
+  <Card title="References" icon="document">
+    Complete API and configuration documentation.
+
+    <LinkCard title="Server Options" href="/meet/docs/reference/cli-server" />
+    <LinkCard title="API Reference" href="/meet/docs/reference/api" />
+    <LinkCard title="Comparison" href="/meet/docs/reference/comparison" />
+  </Card>
+</CardGrid>

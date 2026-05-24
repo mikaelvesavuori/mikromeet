@@ -1,0 +1,89 @@
+{
+  "name": "mikromeet",
+  "version": "1.0.0",
+  "description": "Ultralight video meeting tool",
+  "license": "MIT",
+  "author": "Mikael Vesavuori",
+  "keywords": [
+    "video-meetings",
+    "webrtc",
+    "meetings",
+    "self-hosted",
+    "realtime",
+    "collaboration"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mikaelvesavuori/mikromeet.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mikaelvesavuori/mikromeet/issues"
+  },
+  "homepage": "https://github.com/mikaelvesavuori/mikromeet#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "npm run clean && node build.mjs",
+    "assets": "node ../../scripts/generate-product-icons.mjs --product mikromeet",
+    "build:assets": "node build.mjs --assets",
+    "build:client": "node build.mjs --app",
+    "build:css": "node build.mjs --css",
+    "build:dev": "node build.mjs --dev",
+    "build:html": "node build.mjs --html",
+    "build:server": "node build.mjs --api",
+    "build:watch": "node build.mjs --watch --dev",
+    "clean": "node -e \"const fs=require('node:fs');for (const path of ['dist','lib','coverage','mikromeet-release']) fs.rmSync(path,{recursive:true,force:true});for (const entry of fs.readdirSync('.')) if (entry.endsWith('.zip')) fs.rmSync(entry,{force:true})\"",
+    "deploy": "npm run deploy:frontend && npm run deploy:backend",
+    "deploy:backend": "bash .deployment/deploy-backend.sh",
+    "deploy:frontend": "bash .deployment/deploy-frontend.sh",
+    "dev": "npm run build:dev && concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "npx http-server dist/app -a ${HOST:-127.0.0.1} -p ${WEB_PORT:-8000} -c-1",
+    "dev:server": "tsx watch src/api/index.ts",
+    "docs": "npm run docs:install && npm --prefix docs run dev",
+    "docs:build": "npm run docs:install && npm --prefix docs run build",
+    "docs:preview": "npm run docs:install && npm --prefix docs run preview",
+    "docker:build": "docker build -t mikromeet .",
+    "docker:run": "docker run -p 3000:3000 mikromeet",
+    "format": "biome format --write src tests static scripts build.mjs vitest.config.ts package.json tsconfig.json biome.json mikromeet.config.example.json",
+    "licenses": "mkdir -p security && grant check security/sbom.spdx.json --config .grant.yaml > security/grant-report.txt || { cat security/grant-report.txt; exit 1; }",
+    "lint": "biome check src tests static scripts build.mjs vitest.config.ts package.json tsconfig.json biome.json mikromeet.config.example.json",
+    "lint:fix": "biome check src tests static scripts build.mjs vitest.config.ts package.json tsconfig.json biome.json mikromeet.config.example.json --write",
+    "prepare": "husky",
+    "release": "npm run build && npm run sbom && npm run scan && npm run licenses && npm run release:assets",
+    "sbom": "node scripts/create-prod-sbom.mjs",
+    "scan": "mkdir -p security && grype sbom:security/sbom.spdx.json -o json > security/grype-report.json",
+    "start": "npm run dev",
+    "start:dist": "node dist/api/mikromeet.mjs",
+    "start:dev": "tsx src/api/index.ts",
+    "test": "vitest run --coverage",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run lint && npm run typecheck && npm run test && npm run build && npm run docs:build",
+    "release:assets": "node scripts/create-release-assets.mjs",
+    "precommit": "npm run lint && npm run typecheck && npm run test",
+    "docs:install": "npm --prefix docs ci"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.15",
+    "@types/node": "25",
+    "@vitest/coverage-v8": "4",
+    "concurrently": "latest",
+    "esbuild": "latest",
+    "happy-dom": "latest",
+    "html-minifier-terser": "7",
+    "http-server": "14",
+    "husky": "9.1.7",
+    "license-checker-rseidelsohn": "4",
+    "lightningcss": "1",
+    "tsup": "8",
+    "tsx": "4",
+    "typescript": "6",
+    "vitest": "4",
+    "wrangler": "4"
+  },
+  "workspaces": [
+    "docs"
+  ]
+}

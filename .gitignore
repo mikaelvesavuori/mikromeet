@@ -1,0 +1,35 @@
+# Folders
+node_modules/
+dist/
+coverage/
+data/
+.claude/
+.wrangler/
+
+# Files
+.env
+*.log
+.DS_Store
+*.bundled.*
+*.tgz
+*.zip
+ref*.png
+ref*.jpg
+ref*.jpeg
+sbom.json
+oss-licenses.txt
+VERSION
+
+# Generated
+mikromeet/
+mikromeet-release/
+/mikromeet.config.json
+
+# Deployment stuff
+deploy-*.sh
+*.service
+.deployment/
+release/
+security/
+grype-report.json
+grant-report.txt

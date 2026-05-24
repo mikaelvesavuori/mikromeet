@@ -1,0 +1,103 @@
+---
+title: Installation
+description: Install and set up MikroMeet
+---
+
+Get MikroMeet running in minutes with your preferred method.
+
+:::tip[Use MikroMeet Online]
+Open [meet.mikrosuite.com](https://meet.mikrosuite.com) to start a meeting online for free. It runs over HTTPS, requires no account, and uses room links plus WebRTC media for private calls.
+:::
+
+## Prerequisites
+
+- **Node.js 24+** - [Download](https://nodejs.org/)
+- A static file server for local testing
+
+## Quick Start
+
+### Download the App and API
+
+```bash
+curl -sSL -o mikromeet_app.zip https://releases.mikrosuite.com/mikromeet_app_latest.zip
+curl -sSL -o mikromeet_api.zip https://releases.mikrosuite.com/mikromeet_api_latest.zip
+unzip mikromeet_app.zip -d mikromeet_app
+unzip mikromeet_api.zip -d mikromeet_api
+```
+
+### Start the API
+
+```bash
+cd mikromeet_api/*
+node mikromeet.mjs
+```
+
+### Serve the App
+
+```bash
+cd ../../mikromeet_app/*
+npx http-server . -a 127.0.0.1 -p 8000 -c-1
+```
+
+Then open `http://127.0.0.1:8000` in your browser.
+
+## Release Downloads
+
+The latest release archives are available from GitHub Releases and these stable URLs:
+
+- `https://releases.mikrosuite.com/mikromeet_app_latest.zip` - static browser app
+- `https://releases.mikrosuite.com/mikromeet_api_latest.zip` - Node API bundle
+
+## Check Installation
+
+After starting the server, check that it is working:
+
+1. **Health Check**: Visit `http://127.0.0.1:3000/health`
+2. **Main App**: Open `http://127.0.0.1:8000` in your browser
+3. **Create a Meeting**: Enter your name and click "New Meeting"
+
+You should see a meeting room with your camera/microphone controls.
+
+## Troubleshooting
+
+### Camera/Microphone Not Working
+
+**Problem**: Browser blocks camera/microphone access
+
+**Solution**:
+
+- Use HTTPS in production (required for camera access)
+- For local testing on `127.0.0.1`, HTTP is fine
+- Check browser permissions for the domain
+
+### Port Already in Use
+
+**Problem**: Port 3000 is already taken
+
+**Solution**:
+
+```bash
+MIKROMEET_PORT=8080 node mikromeet.mjs
+```
+
+### Build Fails
+
+**Problem**: Node.js version too old
+
+**Solution**:
+
+```bash
+# Check your version
+node -v
+
+# Should be v24.0.0 or higher
+# Upgrade if needed: https://nodejs.org/
+```
+
+## Next Steps
+
+Now that MikroMeet is installed, configure it for your needs:
+
+- [Configuration Guide](../guides/configuration) - Set up HTTPS and TURN
+  servers
+- [Deployment Guide](../guides/deployment) - Deploy to production

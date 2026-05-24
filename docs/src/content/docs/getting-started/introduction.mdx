@@ -1,0 +1,75 @@
+---
+title: Introduction
+description: Get started with MikroMeet, an ultralight video meeting tool
+---
+
+![MikroMeet product view](../../../assets/mikromeet.png)
+
+:::tip[Use MikroMeet Online]
+Open [meet.mikrosuite.com](https://meet.mikrosuite.com) to start a meeting directly for free. It runs over HTTPS, needs no account, and uses room links plus WebRTC media for private calls.
+:::
+
+MikroMeet is an ultralight video meeting tool built with WebRTC.
+
+## What is MikroMeet?
+
+MikroMeet is a self-hosted video conferencing solution that prioritizes
+simplicity and performance. Built with vanilla TypeScript and Node.js, it
+provides everything you need for video meetings without the overhead of heavy
+frameworks.
+
+This allows MikroMeet to run with incredibly modest hardware and becomes a
+cost- and performance-efficient way to do fully private video conferencing.
+
+## Key Features
+
+- **Zero Dependencies**: Pure Node.js + TypeScript with no runtime dependencies
+- **Modern Vanilla Stack**: No React or other frameworks, just HTML/CSS and TS
+- **Super fast loads**: ~25KB client transfer size for any connection
+- **Modern UX**: Scheduled rooms, calendar invites, chat replies, reactions,
+  participant panels, and mobile controls
+- **WebRTC**: Native peer-to-peer video/audio with efficient signaling
+- **Meeting tools**: Screen sharing, local recording, hand raising, pinning,
+  and file transfer
+- **Moderator controls**: Lock rooms, waiting-room approval, mute/unmute, kick,
+  and promote
+- **Adaptive controls**: Reconnect feedback, media fallback, connection quality
+  indicators, and incoming-video throttling
+- **Self-Hosted**: Full control over your data and infrastructure
+- **Production-Ready**: Built-in security, rate limiting, etc.
+
+## Perfect For
+
+- Small teams (< 8 participants)
+- Privacy-conscious organizations
+- Self-hosted environments
+- Technical teams who want control
+- Learning WebRTC fundamentals
+
+## Architecture Overview
+
+MikroMeet consists of two main components:
+
+- **Backend**: Node.js HTTP server with WebSocket signaling
+- **Frontend**: TypeScript compiled with esbuild to vanilla JS (ESM)
+
+The backend handles signaling and room management, while actual media flows
+directly between participants via WebRTC, ensuring low latency and privacy.
+
+## Get Started
+
+Get a meeting room running in just a few commands:
+
+```bash
+curl -sSL -o mikromeet_app.zip https://releases.mikrosuite.com/mikromeet_app_latest.zip
+curl -sSL -o mikromeet_api.zip https://releases.mikrosuite.com/mikromeet_api_latest.zip
+unzip mikromeet_app.zip -d mikromeet_app
+unzip mikromeet_api.zip -d mikromeet_api
+```
+
+Then start the API with `node mikromeet.mjs`, serve the app archive, and open the app in your browser.
+
+## Next Steps
+
+Ready to dive in? Head to the [Installation](../getting-started/installation)
+guide to set up your first MikroMeet instance.

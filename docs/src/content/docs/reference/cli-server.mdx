@@ -1,0 +1,337 @@
+---
+title: Server Options
+description: Complete reference for MikroMeet server configuration
+---
+
+Complete reference for server configuration options.
+
+## Release Downloads
+
+The latest release archives are available from GitHub Releases and these stable URLs:
+
+- `https://releases.mikrosuite.com/mikromeet_app_latest.zip` - static browser app
+- `https://releases.mikrosuite.com/mikromeet_api_latest.zip` - Node API bundle
+
+## Environment Variables
+
+Configure the server via `.env` file or environment variables.
+
+### Server Configuration
+
+#### `MIKROMEET_PORT`
+
+Server port number.
+
+- **Type**: Number
+- **Default**: `3000`
+- **Example**: `MIKROMEET_PORT=8080`
+
+`PORT` is also supported as a generic fallback.
+
+```bash
+MIKROMEET_PORT=8080 node mikromeet.mjs
+```
+
+#### `USE_HTTPS`
+
+Enable HTTPS server.
+
+- **Type**: Boolean (`true` or `false`)
+- **Default**: `false`
+- **Requires**: `SSL_CERT_PATH` and `SSL_KEY_PATH`
+
+```bash
+USE_HTTPS=true
+```
+
+#### `SSL_CERT_PATH`
+
+Path to SSL certificate file.
+
+- **Type**: String (file path)
+- **Required when**: `USE_HTTPS=true`
+- **Example**: `/etc/letsencrypt/live/yourdomain.com/fullchain.pem`
+
+```bash
+SSL_CERT_PATH=/path/to/cert.pem
+```
+
+#### `SSL_KEY_PATH`
+
+Path to SSL private key file.
+
+- **Type**: String (file path)
+- **Required when**: `USE_HTTPS=true`
+- **Example**: `/etc/letsencrypt/live/yourdomain.com/privkey.pem`
+
+```bash
+SSL_KEY_PATH=/path/to/key.pem
+```
+
+### TURN Server Configuration
+
+#### `TURN_SERVER_URL`
+
+TURN server URL for NAT traversal.
+
+- **Type**: String (URL)
+- **Format**: `turn:hostname:port` or `turns:hostname:port`
+- **Example**: `turn:turn.example.com:3478`
+
+```bash
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+```
+
+#### `TURN_SERVER_USERNAME`
+
+TURN server authentication username.
+
+- **Type**: String
+- **Required with**: `TURN_SERVER_URL`
+
+```bash
+TURN_SERVER_USERNAME=mikromeet
+```
+
+#### `TURN_SERVER_CREDENTIAL`
+
+TURN server authentication password.
+
+- **Type**: String
+- **Required with**: `TURN_SERVER_URL`
+- **Security**: Keep secret, don't commit to git
+
+```bash
+TURN_SERVER_CREDENTIAL=your-secure-password
+```
+
+### Room Management
+
+#### `MAX_LATENT_ROOMS`
+
+Maximum number of pre-created empty rooms.
+
+- **Type**: Number
+- **Default**: `10`
+- **Range**: 1-1000
+
+```bash
+MAX_LATENT_ROOMS=20
+```
+
+#### `LATENT_ROOM_MAX_AGE_HOURS`
+
+Hours before empty pre-created rooms are cleaned up.
+
+- **Type**: Number (hours)
+- **Default**: `24`
+- **Range**: 1-168 (1 week)
+
+```bash
+LATENT_ROOM_MAX_AGE_HOURS=48
+```
+
+## Frontend Configuration
+
+Configure the extracted app archive with `config.json`. `mikromeet.config.json` remains available as a legacy alias.
+
+### `apiUrl`
+
+WebSocket URL for signaling server.
+
+- **Type**: String (WebSocket URL)
+- **Required**: Yes
+- **Format**: `ws://` or `wss://`
+
+```json
+{
+  "apiUrl": "wss://api.yourdomain.com/ws"
+}
+```
+
+**Examples**:
+
+- Local testing: `"ws://127.0.0.1:3000/ws"`
+- Production: `"wss://yourdomain.com/ws"`
+- Separate API: `"wss://api.yourdomain.com/ws"`
+
+### `iceServers`
+
+Array of STUN/TURN servers for WebRTC.
+
+- **Type**: Array of ICE server objects
+- **Optional**: Yes (uses default STUN if omitted)
+
+```json
+{
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "password"
+    }
+  ]
+}
+```
+
+**ICE Server Object**:
+
+- `urls` (string or array): STUN/TURN server URLs
+- `username` (string, optional): Authentication username
+- `credential` (string, optional): Authentication password
+
+**Common STUN servers**:
+
+- `stun:stun.cloudflare.com:3478`
+- `stun:stun.l.google.com:19302`
+- `stun:stun1.l.google.com:19302`
+
+## Configuration Examples
+
+### Local Testing
+
+**`.env`**:
+
+```bash
+MIKROMEET_PORT=3000
+```
+
+**`config.json`**:
+
+```json
+{
+  "apiUrl": "ws://127.0.0.1:3000/ws"
+}
+```
+
+### Production (Basic)
+
+**`.env`**:
+
+```bash
+PORT=8080
+```
+
+**`config.json`**:
+
+```json
+{
+  "apiUrl": "wss://meet.yourdomain.com/ws"
+}
+```
+
+### Production (With TURN)
+
+**`.env`**:
+
+```bash
+PORT=443
+USE_HTTPS=true
+SSL_CERT_PATH=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+SSL_KEY_PATH=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+TURN_SERVER_USERNAME=mikromeet
+TURN_SERVER_CREDENTIAL=strong-password-here
+MAX_LATENT_ROOMS=20
+LATENT_ROOM_MAX_AGE_HOURS=48
+```
+
+**`config.json`**:
+
+```json
+{
+  "apiUrl": "wss://meet.yourdomain.com/ws",
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "strong-password-here"
+    }
+  ]
+}
+```
+
+### Behind Reverse Proxy
+
+**`.env`** (Server runs on HTTP internally):
+
+```bash
+MIKROMEET_PORT=3000
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+TURN_SERVER_USERNAME=mikromeet
+TURN_SERVER_CREDENTIAL=password
+```
+
+**`config.json`** (public-facing is HTTPS):
+
+```json
+{
+  "apiUrl": "wss://meet.yourdomain.com/ws",
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "password"
+    }
+  ]
+}
+```
+
+## Security Considerations
+
+### Rate Limiting
+
+Built-in rate limits:
+
+- **WebSocket**: 10 connections/minute per IP
+- **Room creation**: 10 requests/minute per IP
+
+For additional protection, use:
+
+- Reverse proxy rate limiting (Nginx, Cloudflare)
+- CDN with DDoS protection
+- IP allowlisting for admin endpoints
+
+## Performance Tuning
+
+### Node.js Options
+
+```bash
+# Increase memory limit
+NODE_OPTIONS="--max-old-space-size=4096" node mikromeet.mjs
+
+# Enable debugging
+node --inspect mikromeet.mjs
+```
+
+### PM2 Configuration
+
+```javascript
+// ecosystem.config.js
+module.exports = {
+  apps: [{
+    name: 'mikromeet',
+    script: './mikromeet.mjs',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      MIKROMEET_PORT: 3000
+    }
+  }]
+}
+```
+
+Start with PM2:
+
+```bash
+pm2 start ecosystem.config.js
+```
+
+## Next Steps
+
+- [API Reference](../reference/api) - HTTP and WebSocket API documentation
+- [Configuration Guide](../guides/configuration) - Detailed configuration examples

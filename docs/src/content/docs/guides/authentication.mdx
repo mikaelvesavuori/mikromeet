@@ -1,0 +1,10 @@
+---
+title: Authentication
+description: Authentication boundary for MikroMeet.
+---
+
+MikroMeet does not include application accounts or sign-in. Meeting access is controlled by room links, waiting room state, room locks, and moderator controls.
+
+If a deployment needs account-level access control, put MikroMeet behind the hosting platform's auth, a private network, or a reverse proxy. Keep that access layer outside the WebRTC meeting runtime.
+
+This avoids adding user-account storage to the meeting server and keeps rooms lightweight.

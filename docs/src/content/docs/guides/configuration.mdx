@@ -1,0 +1,313 @@
+---
+title: Configuration
+description: Configure MikroMeet for your deployment
+---
+
+MikroMeet works out of the box with zero configuration, but you can customize
+it for production deployments.
+
+## Configuration Files
+
+MikroMeet uses two configuration approaches:
+
+1. **Frontend Config** - `config.json` in the extracted app archive (runtime)
+2. **Server Config** - `.env` file (environment variables)
+
+## Frontend Configuration
+
+Edit `config.json` in the extracted app archive to configure the client. `mikromeet.config.json` remains available as a legacy alias:
+
+```json
+{
+  "apiUrl": "wss://api.yourdomain.com/ws",
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "your-username",
+      "credential": "your-password"
+    }
+  ]
+}
+```
+
+### Options
+
+#### `apiUrl` (required)
+
+WebSocket URL for the signaling server.
+
+- **Local testing**: `ws://127.0.0.1:3000/ws`
+- **Production (HTTPS)**: `wss://yourdomain.com/ws`
+- **Separate API server**: `wss://api.yourdomain.com/ws`
+
+:::tip
+Use `ws://` for HTTP and `wss://` for HTTPS. Mismatched protocols will fail.
+:::
+
+#### `iceServers` (optional)
+
+Array of STUN/TURN servers for WebRTC connectivity.
+
+**Default** (if omitted):
+
+```json
+[{ "urls": "stun:stun.cloudflare.com:3478" }]
+```
+
+**With TURN** (recommended for production):
+
+```json
+[
+  { "urls": "stun:stun.cloudflare.com:3478" },
+  {
+    "urls": "turn:turn.yourdomain.com:3478",
+    "username": "mikromeet",
+    "credential": "your-secure-password"
+  }
+]
+```
+
+## Server Configuration
+
+Create a `.env` file in the project root:
+
+```bash
+# Server port
+MIKROMEET_PORT=3000
+
+# HTTPS (optional)
+USE_HTTPS=false
+SSL_CERT_PATH=/path/to/cert.pem
+SSL_KEY_PATH=/path/to/key.pem
+
+# TURN server (recommended for production)
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+TURN_SERVER_USERNAME=mikromeet
+TURN_SERVER_CREDENTIAL=your-password
+
+# Room management
+MAX_LATENT_ROOMS=10
+LATENT_ROOM_MAX_AGE_HOURS=24
+```
+
+### Server Options
+
+#### `MIKROMEET_PORT`
+
+Server port (default: `3000`). `PORT` is also supported as a generic fallback.
+
+```bash
+MIKROMEET_PORT=8080
+```
+
+#### `USE_HTTPS`
+
+Enable HTTPS server (default: `false`)
+
+```bash
+USE_HTTPS=true
+SSL_CERT_PATH=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+SSL_KEY_PATH=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+```
+
+:::caution
+When `USE_HTTPS=true`, both certificate paths are required.
+:::
+
+#### TURN Server
+
+Configure TURN for users behind strict NAT/firewalls:
+
+```bash
+TURN_SERVER_URL=turn:turn.example.com:3478
+TURN_SERVER_USERNAME=username
+TURN_SERVER_CREDENTIAL=password
+```
+
+:::tip
+When the frontend can reach the MikroMeet API, configure TURN on the server and
+the app will load ICE servers from `/config`. Static-only deployments can still
+provide `iceServers` directly in `config.json`.
+:::
+
+#### Room Management
+
+Control room lifecycle:
+
+```bash
+MAX_LATENT_ROOMS=20           # Max pre-created empty rooms
+LATENT_ROOM_MAX_AGE_HOURS=48  # Hours before cleanup
+```
+
+## HTTPS Setup
+
+HTTPS is required for:
+
+- Camera/microphone access in browsers
+- Production deployments
+- Secure WebSocket connections (WSS)
+
+### Option 1: Let's Encrypt (Recommended)
+
+```bash
+# Install Certbot
+sudo apt install certbot
+
+# Get certificate
+sudo certbot certonly --standalone -d yourdomain.com
+
+# Configure MikroMeet
+USE_HTTPS=true
+SSL_CERT_PATH=/etc/letsencrypt/live/yourdomain.com/fullchain.pem
+SSL_KEY_PATH=/etc/letsencrypt/live/yourdomain.com/privkey.pem
+```
+
+### Option 2: Reverse Proxy (Easier)
+
+Use Caddy or Nginx for SSL termination. Run MikroMeet on HTTP internally.
+
+**Caddy Example** (auto-HTTPS):
+
+```text
+yourdomain.com {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+**Nginx Example**:
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+
+    # WebSocket upgrade for /ws
+    location /ws {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+    }
+
+    # Proxy other requests
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+```
+
+## TURN Server Setup
+
+TURN servers ensure connectivity for users behind strict firewalls.
+
+### Self-Hosted with Coturn
+
+Install and configure Coturn:
+
+```bash
+# Install (Ubuntu/Debian)
+sudo apt install coturn
+
+# Edit /etc/turnserver.conf
+listening-port=3478
+realm=yourdomain.com
+server-name=turn.yourdomain.com
+lt-cred-mech
+user=mikromeet:your-secure-password
+fingerprint
+
+# Start Coturn
+sudo systemctl enable coturn
+sudo systemctl start coturn
+
+# Allow firewall
+sudo ufw allow 3478/tcp
+sudo ufw allow 3478/udp
+sudo ufw allow 49152:65535/udp
+```
+
+Update both configs:
+
+**Server** (`.env`):
+
+```bash
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+TURN_SERVER_USERNAME=mikromeet
+TURN_SERVER_CREDENTIAL=your-secure-password
+```
+
+**Frontend** (`config.json`):
+
+```json
+{
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "your-secure-password"
+    }
+  ]
+}
+```
+
+### Managed TURN Services
+
+Alternatively, use a managed service:
+
+- **Twilio** - [Get credentials][twilio-credentials]
+- **Metered.ca** - Free tier available
+- **Xirsys** - WebRTC infrastructure
+
+[twilio-credentials]: https://www.twilio.com/console/voice/runtime/test-credentials
+
+## Environment Examples
+
+### Local Testing
+
+```bash
+# .env
+MIKROMEET_PORT=3000
+```
+
+```json
+// config.json
+{
+  "apiUrl": "ws://127.0.0.1:3000/ws"
+}
+```
+
+### Production
+
+```bash
+# .env
+MIKROMEET_PORT=3000
+TURN_SERVER_URL=turn:turn.yourdomain.com:3478
+TURN_SERVER_USERNAME=mikromeet
+TURN_SERVER_CREDENTIAL=strong-password
+MAX_LATENT_ROOMS=20
+```
+
+```json
+// config.json
+{
+  "apiUrl": "wss://yourdomain.com/ws",
+  "iceServers": [
+    { "urls": "stun:stun.cloudflare.com:3478" },
+    {
+      "urls": "turn:turn.yourdomain.com:3478",
+      "username": "mikromeet",
+      "credential": "strong-password"
+    }
+  ]
+}
+```
+
+## Next Steps
+
+- [Deployment Guide](../guides/deployment) - Deploy to production
+- [Server Options](../reference/cli-server) - All configuration options

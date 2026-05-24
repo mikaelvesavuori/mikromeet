@@ -1,0 +1,41 @@
+# Example systemd service file for MikroMeet
+# Copy to /etc/systemd/system/mikromeet.service and customize
+
+[Unit]
+Description=MikroMeet Video Conferencing Server
+After=network.target
+
+[Service]
+Type=simple
+User=mikromeet
+Group=mikromeet
+WorkingDirectory=/opt/mikromeet
+Environment="NODE_ENV=production"
+Environment="MIKROMEET_PORT=3000"
+
+# Add your environment variables here:
+# Environment="TURN_SERVER_URL=turn:your-turn-server.com:3478"
+# Environment="TURN_SERVER_USERNAME=your-username"
+# Environment="TURN_SERVER_CREDENTIAL=your-password"
+
+# Use the full path to node (find with: which node)
+ExecStart=/usr/bin/node /opt/mikromeet/dist/api/mikromeet.mjs
+
+# Restart on failure
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mikromeet
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/mikromeet/data
+
+[Install]
+WantedBy=multi-user.target

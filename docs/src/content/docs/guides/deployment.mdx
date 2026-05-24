@@ -1,0 +1,325 @@
+---
+title: Deployment
+description: Deploy MikroMeet to production
+---
+
+Deploy MikroMeet to various platforms and environments.
+
+## Pre-Deployment Checklist
+
+Before deploying to production:
+
+- Configure HTTPS/WSS
+- Set up TURN server
+- Update `config.json` with production URLs
+- Set strong TURN credentials
+- Configure firewall rules
+- Test from different networks
+
+## Deployment Methods
+
+### Release Archives
+
+Download and extract the app and API archives:
+
+```bash
+curl -sSL -o mikromeet_app.zip https://releases.mikrosuite.com/mikromeet_app_latest.zip
+curl -sSL -o mikromeet_api.zip https://releases.mikrosuite.com/mikromeet_api_latest.zip
+unzip mikromeet_app.zip -d mikromeet_app
+unzip mikromeet_api.zip -d mikromeet_api
+```
+
+### Docker
+
+Create a Dockerfile beside the extracted API files:
+
+```dockerfile
+FROM node:24-slim
+WORKDIR /app
+COPY . .
+EXPOSE 3000
+CMD ["node", "mikromeet.mjs"]
+```
+
+```bash
+docker build -t mikromeet .
+
+docker run -d \
+  -p 3000:3000 \
+  --name mikromeet \
+  -e TURN_SERVER_URL=turn:turn.yourdomain.com:3478 \
+  -e TURN_SERVER_USERNAME=mikromeet \
+  -e TURN_SERVER_CREDENTIAL=your-password \
+  mikromeet
+```
+
+### Linux Server (Systemd)
+
+Copy and edit the systemd service:
+
+```bash
+# Copy example service file
+sudo cp mikromeet.service.example /etc/systemd/system/mikromeet.service
+
+# Edit paths and environment
+sudo nano /etc/systemd/system/mikromeet.service
+
+# Enable and start
+sudo systemctl daemon-reload
+sudo systemctl enable mikromeet
+sudo systemctl start mikromeet
+sudo systemctl status mikromeet
+```
+
+Example service file for a release archive deployment:
+
+```ini
+[Unit]
+Description=MikroMeet Server
+After=network.target
+
+[Service]
+Type=simple
+User=mikromeet
+WorkingDirectory=/opt/mikromeet
+Environment="NODE_ENV=production"
+Environment="MIKROMEET_PORT=3000"
+Environment="TURN_SERVER_URL=turn:turn.yourdomain.com:3478"
+ExecStart=/usr/bin/node /opt/mikromeet/mikromeet.mjs
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### Cloud Platforms
+
+#### Heroku
+
+Upload the extracted API archive with a Node start command of `node mikromeet.mjs`, then set `TURN_SERVER_URL`, `TURN_SERVER_USERNAME`, and `TURN_SERVER_CREDENTIAL` as environment variables.
+
+#### Fly.io
+
+Use the extracted API archive as the app directory, set `node mikromeet.mjs` as the start command, and add TURN settings as Fly secrets.
+
+#### DigitalOcean App Platform
+
+1. Upload the extracted API archive or configure your platform to use it.
+2. Configure run command: `node mikromeet.mjs`.
+3. Add environment variables in the dashboard
+4. Deploy.
+
+### Static Frontend Hosting
+
+For separate frontend/backend deployment:
+
+#### Cloudflare Pages
+
+Upload the extracted app archive to Cloudflare Pages.
+
+#### Netlify
+
+Upload the extracted app archive to Netlify.
+
+#### Vercel
+
+Upload the extracted app archive to Vercel.
+
+#### AWS S3 + CloudFront
+
+```bash
+# Upload to S3
+aws s3 sync mikromeet_app/*/ s3://your-bucket-name/ --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation --distribution-id YOUR_ID --paths "/*"
+```
+
+## Reverse Proxy Setup
+
+### Caddy
+
+Caddy auto-handles HTTPS:
+
+```text
+yourdomain.com {
+    # Serve static files
+    root * /var/www/mikromeet
+    file_server
+
+    # WebSocket proxy
+    @websocket {
+        path /ws
+    }
+    reverse_proxy @websocket 127.0.0.1:3000
+
+    # API proxy
+    reverse_proxy /api/* 127.0.0.1:3000
+}
+```
+
+Reload:
+
+```bash
+sudo systemctl reload caddy
+```
+
+### Nginx
+
+Full example with HTTPS:
+
+```nginx
+# HTTP -> HTTPS redirect
+server {
+    listen 80;
+    server_name yourdomain.com;
+    return 301 https://$server_name$request_uri;
+}
+
+# HTTPS server
+server {
+    listen 443 ssl http2;
+    server_name yourdomain.com;
+
+    # SSL certificates
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    # WebSocket upgrade
+    location /ws {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # API endpoints
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+
+    # Static files (if serving frontend from Nginx)
+    location / {
+        root /var/www/mikromeet;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+Enable and reload:
+
+```bash
+sudo ln -s /etc/nginx/sites-available/mikromeet /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+## Monitoring & Logs
+
+### Health Checks
+
+MikroMeet exposes a health endpoint:
+
+```bash
+curl https://yourdomain.com/health
+```
+
+Returns:
+
+```json
+{
+  "status": "ok",
+  "totalRooms": 5,
+  "totalParticipants": 12,
+  "peakParticipants": 24,
+  "uptime": 3600000,
+  "version": "1.0.0"
+}
+```
+
+### Logging
+
+#### Systemd Logs
+
+```bash
+# Follow logs
+sudo journalctl -u mikromeet -f
+
+# Last 100 lines
+sudo journalctl -u mikromeet -n 100
+
+# Logs since boot
+sudo journalctl -u mikromeet -b
+```
+
+#### Docker Logs
+
+```bash
+# Follow logs
+docker logs -f mikromeet
+
+# Last 100 lines
+docker logs --tail 100 mikromeet
+```
+
+## Security Hardening
+
+### Firewall Configuration
+
+```bash
+# Allow SSH
+sudo ufw allow 22/tcp
+
+# Allow HTTP/HTTPS
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Allow TURN (if running Coturn)
+sudo ufw allow 3478/tcp
+sudo ufw allow 3478/udp
+sudo ufw allow 49152:65535/udp
+
+# Enable firewall
+sudo ufw enable
+```
+
+### Rate Limiting
+
+MikroMeet includes built-in rate limiting:
+
+- 10 WebSocket connections per minute per IP
+- 10 room creation requests per minute per IP
+
+For additional protection, use Nginx rate limiting or Cloudflare.
+
+## Troubleshooting
+
+### WebSocket Connection Fails
+
+- Verify `apiUrl` matches deployment protocol (ws/wss)
+- Check reverse proxy WebSocket headers
+- Ensure firewall allows WebSocket traffic
+
+### Camera/Microphone Blocked
+
+- HTTPS is required for camera/microphone access
+- Check browser permissions
+- Verify SSL certificate is valid
+
+### Users Can't Connect
+
+- Add TURN server configuration
+- Test TURN with [Trickle ICE][trickle-ice]
+- Verify firewall allows TURN ports
+
+[trickle-ice]: https://webrtc.github.io/samples/src/content/peerconnection/trickle-ice/
+
+## Next Steps
+
+- [Server Options](../reference/cli-server) - Full configuration reference
+- [API Reference](../reference/api) - HTTP and WebSocket API

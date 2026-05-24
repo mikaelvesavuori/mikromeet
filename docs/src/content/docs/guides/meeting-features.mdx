@@ -1,0 +1,80 @@
+---
+title: Meeting Features
+description: Use MikroMeet's in-meeting tools
+---
+
+MikroMeet includes the essentials for small self-hosted meetings without adding
+a hosted conferencing platform.
+
+## Invite Links
+
+Create a meeting, copy the invite link, and send it to participants. Invite
+links use the `?join=` URL parameter so they work well on mobile and desktop
+browsers.
+
+## Scheduling And Calendar Invites
+
+Use advanced options before creating a room to add a meeting title, start time,
+and duration. MikroMeet reserves the room, shows a shareable join link, and can
+download an `.ics` calendar invite for the scheduled time.
+
+## Chat And Replies
+
+Open the chat panel to send text messages during a call. Use **Reply** on a
+message to keep side discussions connected to the original message.
+
+## Reactions
+
+Use the reactions control to send quick visual reactions during a meeting. The
+reaction appears as a short tile overlay for you and other participants.
+
+## File Transfer
+
+Use the attachment button in chat to send a file to the other participants in
+the room. Recipients can accept or reject each transfer before the file chunks
+are sent.
+
+## Screen Sharing
+
+Use **Share screen** to replace your camera video with a shared display. Press
+the control again, or stop sharing from the browser prompt, to return to your
+camera.
+
+## Recording
+
+Moderators can start a local browser recording. Recording is saved as a
+`.webm` file when stopped, and other participants see a recording indicator
+while recording is active.
+
+## Hand Raising
+
+Participants can raise or lower their hand from the meeting controls. The
+raised-hand state appears on the video tile and in the participant list.
+
+## Pinning Video
+
+Double-click a remote participant video to pin it locally. Double-click again
+to return to the normal grid. Pinning is local to your browser and does not
+change anyone else's layout.
+
+## Moderator Controls
+
+The first participant becomes moderator. Moderators can:
+
+- Lock or unlock the room
+- Admit or reject people from the waiting room
+- Admit all waiting users
+- Mute or unmute participants
+- Remove participants
+- Promote another participant to moderator
+
+## Connection Controls
+
+MikroMeet shows connection quality and can disable incoming video when the
+connection becomes poor. Participants can also manually disable incoming video
+to preserve bandwidth.
+
+If the signaling connection drops, MikroMeet shows reconnect status, rejoins
+the room when the WebSocket returns, and rebuilds peer connections. If a camera
+or microphone is unavailable when joining, MikroMeet falls back to the
+remaining device where possible so the participant can still enter the room.
