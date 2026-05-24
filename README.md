@@ -4,15 +4,15 @@
 
 ![MikroMeet product view](./mikromeet.png)
 
-_Use MikroMeet online for free at [meet.mikrosuite.com](https://meet.mikrosuite.com). It runs over HTTPS, needs no account, and uses room links plus WebRTC media for private calls._
-
 MikroMeet is an ultralight, self-hosted video meeting app for teams who want freedom, privacy, and control over their calls without a heavy hosted platform.
 
 ![Build Status](https://github.com/mikaelvesavuori/mikromeet/workflows/build/badge.svg)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-_MikroMeet was previous known as MikroRoom._
+_Use MikroMeet online for free at [meet.mikrosuite.com](https://meet.mikrosuite.com). It runs over HTTPS, needs no account, and uses room links plus WebRTC media for private calls._
+
+_NB: MikroMeet was previous known as MikroRoom._
 
 ## Features
 
