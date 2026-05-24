@@ -19,6 +19,9 @@ interface MediaControllerDependencies {
 export class MediaController {
   private mediaRecorder: MediaRecorder | null = null;
   private recordedChunks: Blob[] = [];
+  private recordingAnimationFrame = 0;
+  private recordingAudioContext: AudioContext | null = null;
+  private recordingAudioSources: MediaStreamAudioSourceNode[] = [];
   private screenStream: MediaStream | null = null;
   private isRecording = false;
   private isLocalRecording = false;
@@ -110,25 +113,10 @@ export class MediaController {
     if (!localStream) return;
 
     try {
-      const combinedStream = new MediaStream();
+      const recordingStream = this.createRecordingStream(localStream);
+      const mimeType = this.getRecordingMimeType();
 
-      const localRecordingStream = this.screenStream ?? localStream;
-      localRecordingStream.getTracks().forEach((track) => {
-        combinedStream.addTrack(track);
-      });
-
-      this.dependencies
-        .getPeerManager()
-        ?.getAllPeers()
-        .forEach((peer) => {
-          if (peer.stream) {
-            peer.stream.getTracks().forEach((track) => {
-              combinedStream.addTrack(track);
-            });
-          }
-        });
-
-      this.mediaRecorder = new MediaRecorder(combinedStream);
+      this.mediaRecorder = new MediaRecorder(recordingStream, mimeType ? { mimeType } : undefined);
       this.recordedChunks = [];
 
       this.mediaRecorder.ondataavailable = (event) => {
@@ -138,16 +126,11 @@ export class MediaController {
       };
 
       this.mediaRecorder.onstop = () => {
-        const blob = new Blob(this.recordedChunks, { type: "video/webm" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `MikroMeet-recording-${new Date().toISOString()}.webm`;
-        a.click();
-        URL.revokeObjectURL(url);
+        this.downloadRecording(mimeType);
+        this.cleanupRecordingResources();
       };
 
-      this.mediaRecorder.start();
+      this.mediaRecorder.start(1000);
       this.isRecording = true;
       this.isLocalRecording = true;
       this.dependencies.ui.updateRecordButton(true);
@@ -160,6 +143,7 @@ export class MediaController {
     } catch (error) {
       console.error("Failed to start recording:", error);
       this.dependencies.notifier.error("Failed to start recording");
+      this.cleanupRecordingResources();
     }
   }
 
@@ -231,5 +215,176 @@ export class MediaController {
       track.stop();
     }
     this.screenStream = null;
+  }
+
+  private createRecordingStream(localStream: MediaStream): MediaStream {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+
+    const stream = canvas.captureStream(30);
+    const mixedAudioStream = this.createMixedAudioStream(localStream);
+    for (const track of mixedAudioStream.getAudioTracks()) {
+      stream.addTrack(track);
+    }
+
+    this.renderRecordingFrame(canvas);
+    return stream;
+  }
+
+  private createMixedAudioStream(localStream: MediaStream): MediaStream {
+    const audioStreams = [
+      this.screenStream ?? localStream,
+      ...(this.dependencies
+        .getPeerManager()
+        ?.getAllPeers()
+        .map((peer) => peer.stream) ?? []),
+    ].filter((stream): stream is MediaStream => Boolean(stream?.getAudioTracks().length));
+
+    if (!audioStreams.length || typeof AudioContext === "undefined") {
+      return new MediaStream();
+    }
+
+    this.recordingAudioContext = new AudioContext();
+    const destination = this.recordingAudioContext.createMediaStreamDestination();
+
+    for (const stream of audioStreams) {
+      const source = this.recordingAudioContext.createMediaStreamSource(stream);
+      source.connect(destination);
+      this.recordingAudioSources.push(source);
+    }
+
+    return destination.stream;
+  }
+
+  private renderRecordingFrame(canvas: HTMLCanvasElement): void {
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    const draw = () => {
+      const container = this.dependencies.ui.elements.videoGrid;
+      const containerRect = container.getBoundingClientRect();
+
+      context.fillStyle = "#0b0d10";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      if (containerRect.width > 0 && containerRect.height > 0) {
+        const videoItems = this.getVisibleVideoItems();
+        const scaleX = canvas.width / containerRect.width;
+        const scaleY = canvas.height / containerRect.height;
+
+        for (const item of videoItems) {
+          const rect = item.getBoundingClientRect();
+          const video = item.querySelector("video");
+          if (!video) continue;
+
+          const x = (rect.left - containerRect.left) * scaleX;
+          const y = (rect.top - containerRect.top) * scaleY;
+          const width = rect.width * scaleX;
+          const height = rect.height * scaleY;
+
+          context.fillStyle = "#121417";
+          context.fillRect(x, y, width, height);
+          this.drawVideoCover(context, video, x, y, width, height);
+        }
+      }
+
+      this.recordingAnimationFrame = requestAnimationFrame(draw);
+    };
+
+    draw();
+  }
+
+  private getVisibleVideoItems(): HTMLElement[] {
+    const items = Array.from(
+      this.dependencies.ui.elements.videoGrid.querySelectorAll<HTMLElement>(".video-item"),
+    ).filter((item) => {
+      const rect = item.getBoundingClientRect();
+      const style = getComputedStyle(item);
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        style.display !== "none" &&
+        style.visibility !== "hidden"
+      );
+    });
+
+    return [
+      ...items.filter((item) => !item.classList.contains("local")),
+      ...items.filter((item) => item.classList.contains("local")),
+    ];
+  }
+
+  private drawVideoCover(
+    context: CanvasRenderingContext2D,
+    video: HTMLVideoElement,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): void {
+    if (video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || !video.videoWidth) return;
+
+    const sourceRatio = video.videoWidth / video.videoHeight;
+    const targetRatio = width / height;
+    let sourceX = 0;
+    let sourceY = 0;
+    let sourceWidth = video.videoWidth;
+    let sourceHeight = video.videoHeight;
+
+    if (sourceRatio > targetRatio) {
+      sourceWidth = sourceHeight * targetRatio;
+      sourceX = (video.videoWidth - sourceWidth) / 2;
+    } else {
+      sourceHeight = sourceWidth / targetRatio;
+      sourceY = (video.videoHeight - sourceHeight) / 2;
+    }
+
+    const isMirrored = getComputedStyle(video).transform.startsWith("matrix(-1,");
+    context.save();
+    if (isMirrored) {
+      context.translate(x + width, y);
+      context.scale(-1, 1);
+      context.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, height);
+    } else {
+      context.drawImage(video, sourceX, sourceY, sourceWidth, sourceHeight, x, y, width, height);
+    }
+    context.restore();
+  }
+
+  private getRecordingMimeType(): string {
+    return (
+      ["video/webm;codecs=vp9,opus", "video/webm;codecs=vp8,opus", "video/webm", "video/mp4"].find(
+        (type) => MediaRecorder.isTypeSupported(type),
+      ) ?? ""
+    );
+  }
+
+  private downloadRecording(mimeType: string): void {
+    const recordingMimeType = this.mediaRecorder?.mimeType || mimeType || "video/webm";
+    const extension = recordingMimeType.includes("mp4") ? "mp4" : "webm";
+    const blob = new Blob(this.recordedChunks, { type: recordingMimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `MikroMeet-recording-${new Date().toISOString()}.${extension}`;
+    document.body.append(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+
+  private cleanupRecordingResources(): void {
+    if (this.recordingAnimationFrame) {
+      cancelAnimationFrame(this.recordingAnimationFrame);
+      this.recordingAnimationFrame = 0;
+    }
+
+    for (const source of this.recordingAudioSources) {
+      source.disconnect();
+    }
+    this.recordingAudioSources = [];
+    void this.recordingAudioContext?.close();
+    this.recordingAudioContext = null;
   }
 }

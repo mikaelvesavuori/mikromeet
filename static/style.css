@@ -277,6 +277,7 @@ h1 {
 
 .form-group-inline input {
   flex: 1;
+  min-width: 0;
   height: 48px;
   padding: 0 var(--space-l);
   background: var(--input-bg);
@@ -414,6 +415,7 @@ h1 {
 
 .share-link-group input {
   flex: 1;
+  min-width: 0;
   background: none;
   border: none;
   color: var(--text-secondary);
@@ -1960,6 +1962,31 @@ h1 {
 
   .mobile-only {
     display: flex !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .screen {
+    padding: var(--space-m);
+  }
+
+  #landing .container,
+  #error .container {
+    padding: 1.25rem;
+  }
+
+  .form-group-inline {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-group-inline input,
+  .form-group-inline .btn {
+    width: 100%;
+  }
+
+  .form-grid-compact {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
