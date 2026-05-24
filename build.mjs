@@ -101,6 +101,16 @@ export async function buildApi(options = {}) {
 }
 
 /**
+ * Build complete static app for browser-only hosting.
+ */
+export async function buildStaticApp(options = {}) {
+  await buildApp(options);
+  await buildCSS(options);
+  await buildHTML(options);
+  copyAssets();
+}
+
+/**
  * Process CSS with Lightning CSS
  */
 export async function buildCSS(options = {}) {
@@ -311,7 +321,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
       switch (target) {
         case "--app":
-          await buildApp(buildOptions);
+          await buildStaticApp(buildOptions);
           break;
         case "--api":
           await buildApi(buildOptions);

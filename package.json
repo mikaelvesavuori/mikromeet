@@ -32,6 +32,7 @@
     "build:css": "node build.mjs --css",
     "build:dev": "node build.mjs --dev",
     "build:html": "node build.mjs --html",
+    "build:pages": "npm run build:client && node scripts/write-pages-config.mjs",
     "build:server": "node build.mjs --api",
     "build:watch": "node build.mjs --watch --dev",
     "clean": "node -e \"const fs=require('node:fs');for (const path of ['dist','lib','coverage','mikromeet-release']) fs.rmSync(path,{recursive:true,force:true});for (const entry of fs.readdirSync('.')) if (entry.endsWith('.zip')) fs.rmSync(entry,{force:true})\"",
